@@ -211,7 +211,7 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] w-full max-w-4xl mx-auto glass-panel rounded-t-3xl overflow-hidden mt-8 shadow-2xl relative">
+    <div className="flex flex-col h-full w-full glass-panel rounded-3xl overflow-hidden shadow-2xl relative border border-indigo-500/20">
       <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
         {messages.map((msg) => (
           <div key={msg.id}>
@@ -236,10 +236,12 @@ export default function ChatInterface() {
             placeholder="Type your response here..."
             className="flex-1 bg-[var(--bg-accent)] text-white p-4 rounded-xl border border-[var(--glass-border)] focus:outline-none focus:border-[var(--accent-glow)] focus:ring-1 focus:ring-[var(--accent-glow)] transition-all font-medium placeholder-gray-500"
             autoComplete="off"
+            suppressHydrationWarning
           />
           <button
             type="submit"
             className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl font-semibold transition-all hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] disabled:opacity-50 flex items-center justify-center"
+            suppressHydrationWarning
           >
              Send
           </button>
