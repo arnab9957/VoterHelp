@@ -1,74 +1,54 @@
-<h1 align="center">To Do List</h1>
+# Ballot Buddy 🗳️
 
-<p align="center">
-  A simple to-do list app built with Next.js and InsForge
-</p>
+**Ballot Buddy** is an interactive, non-partisan Election Process Education Assistant. Built as a high-performance web application, it serves as the "connective tissue" between complex federal election mandates and localized voter guidance, empowering users with accurate, real-time information about their civic duties.
 
-<p align="center">
-  <a href="https://demotodo.insforge.site"><strong>Live Demo</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#quick-launch"><strong>Quick launch</strong></a> ·
-  <a href="#database-setup"><strong>Database setup</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a>
-</p>
-<br />
+## 🌟 Features
 
-## Features
+- **Interactive Educational Assistant:** A simulated conversational flow that guides users through voter eligibility, the voting lifecycle, and election integrity based on the National Voter Registration Act (NVRA) and Voting Rights Act (VRA).
+- **Federal & Local Contexts:** Conditional guidance for specific edge cases, including military/overseas voters (UOCAVA) and emergency election procedures for disaster-impacted zones.
+- **Dynamic Transition Timeline:** Visual, interactive timelines detailing the step-by-step transition of power, from State-Level Certification to the Presidential Inauguration.
+- **Comprehensive Election Dashboard:** A clean, organized sidebar layout providing at-a-glance information on voter eligibility, acceptable IDs, voting methods, and key deadlines.
+- **Premium Glassmorphism UI:** Built with dark-mode first principles, vibrant gradients, and micro-animations to provide a stunning and engaging user experience.
 
-- Simple to-do list UI with add, toggle, and display
-- Built with [Next.js](https://nextjs.org) App Router and [Tailwind CSS](https://tailwindcss.com)
-- [InsForge](https://insforge.dev) database for persistent storage
+## 🛠️ Tech Stack
 
+- **Framework:** [Next.js](https://nextjs.org/) (App Router)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) with custom Glassmorphism utilities
+- **Language:** TypeScript
+- **Icons:** Native Emojis for lightweight, scalable iconography
 
-## Quick launch
+## 🚀 Getting Started
 
-Use the InsForge CLI to get started:
+To run the development server locally:
 
-```bash
-npx @insforge/cli create
-```
+1. **Clone the repository** (or navigate to the project directory):
+   ```bash
+   cd ballot-buddy
+   ```
 
-Choose the **To Do List** template and follow the prompts.
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-## Database setup
+3. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
 
-Apply the database schema (creates the `todo` table, grants permissions, and sets up the storage bucket):
+4. **Open the app**:
+   Navigate to [http://localhost:3000](http://localhost:3000) in your browser to interact with Ballot Buddy.
 
-```bash
-npx @insforge/cli db import migrations/db_init.sql
-```
+## 🏗️ Project Architecture
 
-## Clone and run locally
+The core interactive components are located in the `src/components/` directory:
+- `ChatInterface.tsx`: The primary state machine managing the conversational branching logic.
+- `EssentialInfo.tsx`: The static dashboard providing fundamental voting resources.
+- `OptionsSelector.tsx`: The interactive menu interface.
+- `InteractiveTimeline.tsx`: Renders dynamic election milestones.
 
-1. Clone this repository:
+Global styles and design tokens are defined in `src/app/globals.css`.
 
-```bash
-git clone https://github.com/InsForge/insforge-templates.git
-cd insforge-templates/todo
-```
+## 🛡️ Content Guidelines & Blueprint
 
-2. Install dependencies:
-
-```bash
-npm install
-```
-
-3. Link your InsForge project:
-
-```bash
-npx @insforge/cli link --project-id <your-project-id>
-```
-
-4. Copy `.env.example` to `.env.local` and fill in your project settings:
-
-```bash
-cp .env.example .env.local
-```
-
-5. Start the development server:
-
-```bash
-npm run dev
-```
-
-The app should now be running on [localhost:3000](http://localhost:3000).
+The conversational logic and information hierarchy are strictly based on the provided "Technical Blueprint and Procedural Framework for the Election Process Education Assistant", ensuring that all guidance aligns with federal minimums while preparing voters for localized execution.
