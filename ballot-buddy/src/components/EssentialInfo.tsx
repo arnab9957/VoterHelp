@@ -55,7 +55,7 @@ export default function EssentialInfo() {
                 <div className="text-xl bg-[var(--bg-accent)] p-2 rounded-xl border border-[var(--glass-border)] group-hover:scale-110 transition-transform">
                   {item.icon}
                 </div>
-                <h3 className="font-semibold text-lg text-white/90">{item.title}</h3>
+                <h3 className="font-semibold text-lg text-[var(--text-primary)]">{item.title}</h3>
               </div>
               <ul className="space-y-2">
                 {item.details.map((detail, idx) => (
@@ -72,7 +72,7 @@ export default function EssentialInfo() {
       
       {/* Quick Links Card */}
       <div className="glass-panel p-6 rounded-3xl bg-indigo-900/10 border-indigo-500/20">
-        <h3 className="font-semibold text-lg mb-4 text-indigo-300 flex items-center gap-2">
+        <h3 className="font-semibold text-lg text-[var(--text-primary)] mb-4 text-indigo-300 flex items-center gap-2">
           <span>🔗</span> Essential Resources
         </h3>
         <div className="flex flex-wrap gap-3">

@@ -12,8 +12,8 @@ export default function MessageBubble({ text, isUser, animate = true }: MessageB
       <div
         className={`max-w-[75%] p-4 rounded-2xl ${animate ? 'animate-fade-in-up' : ''} ${
           isUser
-            ? 'bg-blue-600 text-white rounded-br-sm'
-            : 'glass-panel text-white rounded-bl-sm'
+            ? 'bg-indigo-600 text-white rounded-br-sm'
+            : 'glass-panel text-[var(--text-primary)] rounded-bl-sm'
         }`}
       >
         <p className="text-sm md:text-base leading-relaxed break-words whitespace-pre-wrap">{text}</p>

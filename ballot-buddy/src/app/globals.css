@@ -15,6 +15,18 @@
     --glass-border: rgba(255, 255, 255, 0.08);
   }
 
+  [data-theme="light"] {
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-accent: #e8eef3;
+    --text-primary: #1a1a2e;
+    --text-secondary: #495057;
+    --accent-color: #4f46e5;
+    --accent-glow: rgba(79, 70, 229, 0.25);
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(0, 0, 0, 0.12);
+  }
+
   body {
     @apply m-0 min-w-[320px] min-h-screen font-sans;
     background: var(--bg-primary);
@@ -38,15 +50,29 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  .glass-panel-hover:hover {
+  :global([data-theme="dark"]) .glass-panel-hover:hover {
     background: rgba(40, 40, 40, 0.7);
     border-color: rgba(255, 255, 255, 0.15);
     box-shadow: 0 0 20px var(--accent-glow);
     transform: translateY(-2px);
   }
 
+  :global([data-theme="light"]) .glass-panel-hover:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-2px);
+  }
+
   .gradient-text {
     background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  :global([data-theme="light"]) .gradient-text {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
