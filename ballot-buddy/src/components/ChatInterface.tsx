@@ -119,7 +119,7 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [...messages, { isUser: true, text: query }].filter(m => m.type === 'text'),
+        messages: [...messages, { id: 'temp-query', isUser: true, text: query, type: 'text' } as Message].filter(m => m.type === 'text'),
         userState: userData.location,
         userRole: userData.role,
         language

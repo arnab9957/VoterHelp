@@ -1,6 +1,6 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: Request) {
   try {
@@ -15,27 +15,24 @@ export async function POST(req: Request) {
     If they upload an election mailer or document, explain what it is.
     Always maintain a neutral, non-partisan tone.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: [{
-        role: 'user',
-        parts: [
-          { text: query || "What can you tell me about this election-related document?" },
-          {
-            inlineData: {
-              data: imageBase64,
-              mimeType: mimeType || 'image/jpeg'
-            }
-          }
-        ]
-      }],
-      config: {
-        systemInstruction,
-        temperature: 0.1,
-      }
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-flash-latest',
+      systemInstruction: systemInstruction,
     });
 
-    return Response.json({ text: response.text });
+    const result = await model.generateContent([
+      query || "What can you tell me about this election-related document?",
+      {
+        inlineData: {
+          data: imageBase64,
+          mimeType: mimeType || 'image/jpeg'
+        }
+      }
+    ]);
+    const response = await result.response;
+    const text = response.text();
+
+    return Response.json({ text });
   } catch (error) {
     console.error('Gemini Vision API Error:', error);
     return Response.json({ error: 'Failed to process image' }, { status: 500 });
