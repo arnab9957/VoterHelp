@@ -1,10 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { insforge } from '@/lib/insforge';
 
 export async function POST(req: Request) {
   try {
-    const { messages, userState, userRole, language } = await req.json();
+    const { messages, userState, userRole, language, apiKey, modelName } = await req.json();
+
+    const genAI = new GoogleGenerativeAI(apiKey || process.env.GEMINI_API_KEY || '');
 
     const systemInstruction = `You are Ballot Buddy, a non-partisan, highly accurate election expert assistant.
     Your primary goal is to guide users through the election process, focusing on the National Voter Registration Act (NVRA), UOCAVA, and related state-specific guidelines.
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
     The user requested a voting plan. Create a customized, step-by-step checklist based on their state and role. Include specific dates or deadlines if possible, or advise them where to find them. Format as a markdown list.`;
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+      model: modelName || 'gemini-2.5-flash',
       systemInstruction: systemInstruction,
     });
 
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
       if (msg.type !== 'text') return;
       
       const role = msg.isUser ? 'user' : 'model';
+      
+      // Gemini history MUST start with 'user'
+      if (history.length === 0 && role === 'model') return;
+
       if (role !== lastRole) {
         history.push({
           role: role,
@@ -50,6 +55,19 @@ export async function POST(req: Request) {
     });
     const response = await result.response;
     const text = response.text();
+
+    // Log to InsForge
+    try {
+      await insforge.database.from('user_interactions').insert([{
+        location: userState || 'Unknown',
+        role: userRole || 'Civilian',
+        query: 'Generate voting plan',
+        response: text,
+        language: language || 'English'
+      }]);
+    } catch (dbError) {
+      console.error('Failed to log to InsForge:', dbError);
+    }
 
     return Response.json({ text });
   } catch (error) {

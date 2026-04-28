@@ -28,6 +28,9 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [language, setLanguage] = useState('English');
+  const [apiKey, setApiKey] = useState('');
+  const [modelName, setModelName] = useState('gemini-2.5-flash');
+  const [showSettings, setShowSettings] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const latestOptionRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +125,9 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
         messages: [...messages, { id: 'temp-query', isUser: true, text: query, type: 'text' } as Message].filter(m => m.type === 'text'),
         userState: userData.location,
         userRole: userData.role,
-        language
+        language,
+        apiKey,
+        modelName
       })
     })
     .then(res => res.json())
@@ -312,7 +317,9 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
           messages: messages.filter(m => m.type === 'text'),
           userState: userData.location,
           userRole: userData.role,
-          language
+          language,
+          apiKey,
+          modelName
         })
       })
     .then(res => res.json())
@@ -411,7 +418,9 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
             body: JSON.stringify({
               imageBase64: b64Data,
               mimeType: mimeType,
-              query: input
+              query: input,
+              apiKey,
+              modelName
             })
           })
           .then(res => res.json())
@@ -443,7 +452,9 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
             messages: [...messages, { id: Date.now().toString(), isUser: true, text: input, type: 'text' }].filter(m => m.type === 'text'),
             userState: userData.location,
             userRole: userData.role,
-            language
+            language,
+            apiKey,
+            modelName
           })
         })
         .then(res => res.json())
@@ -468,6 +479,48 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
 
   return (
     <div className="flex flex-col h-full w-full glass-panel rounded-3xl overflow-hidden shadow-2xl relative border border-indigo-500/20">
+      {/* Header & Settings */}
+      <div className="px-6 py-3 border-b border-[var(--glass-border)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
+        <div className="font-semibold text-indigo-400 flex items-center gap-2">
+          <span className="text-xl">🗳️</span> Ballot Buddy
+        </div>
+        <button 
+          onClick={() => setShowSettings(!showSettings)}
+          className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          Settings
+        </button>
+      </div>
+
+      {showSettings && (
+        <div className="px-6 py-4 bg-[var(--bg-accent)] border-b border-[var(--glass-border)] flex flex-col gap-3 shrink-0">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div className="flex-1 w-full">
+              <label className="block text-xs text-[var(--text-secondary)] uppercase tracking-wider font-semibold mb-1">API Key</label>
+              <input 
+                type="password" 
+                value={apiKey} 
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Leave blank to use default key"
+                className="w-full bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--glass-border)] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="w-full sm:w-auto">
+              <label className="block text-xs text-[var(--text-secondary)] uppercase tracking-wider font-semibold mb-1">Model</label>
+              <select 
+                value={modelName} 
+                onChange={(e) => setModelName(e.target.value)}
+                className="w-full bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--glass-border)] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fast)</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Powerful)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-6 scroll-smooth" role="log" aria-label="Chat messages" aria-live="polite">
         {isLoading && (
           <div className="flex flex-col gap-3 my-4">

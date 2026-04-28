@@ -1,10 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { insforge } from '@/lib/insforge';
 
 export async function POST(req: Request) {
   try {
-    const { imageBase64, mimeType, query } = await req.json();
+    const { imageBase64, mimeType, query, apiKey, modelName } = await req.json();
+
+    const genAI = new GoogleGenerativeAI(apiKey || process.env.GEMINI_API_KEY || '');
 
     if (!imageBase64) {
       return Response.json({ error: 'No image provided' }, { status: 400 });
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     Always maintain a neutral, non-partisan tone.`;
 
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+      model: modelName || 'gemini-2.5-flash',
       systemInstruction: systemInstruction,
     });
 
@@ -31,6 +32,16 @@ export async function POST(req: Request) {
     ]);
     const response = await result.response;
     const text = response.text();
+
+    // Log to InsForge
+    try {
+      await insforge.database.from('user_interactions').insert([{
+        query: `[Vision] ${query || 'Analyze document'}`,
+        response: text,
+      }]);
+    } catch (dbError) {
+      console.error('Failed to log to InsForge:', dbError);
+    }
 
     return Response.json({ text });
   } catch (error) {
