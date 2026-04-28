@@ -1,0 +1,35 @@
+name: CI — Type Check & Build
+
+on:
+  push:
+    branches: ['main', 'dev']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  build:
+    name: Build & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Next.js production build
+        run: npm run build
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NEXT_PUBLIC_INSFORGE_URL: ${{ secrets.NEXT_PUBLIC_INSFORGE_URL }}
+          NEXT_PUBLIC_INSFORGE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_INSFORGE_ANON_KEY }}

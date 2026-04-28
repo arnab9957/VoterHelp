@@ -1,8 +1,17 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { insforge } from '@/lib/insforge';
+import { checkRateLimit } from '@/lib/rateLimit';
+import { logError } from '@/lib/logError';
+
+export const runtime = 'edge';
 
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get('x-forwarded-for') || 'anonymous';
+    if (!checkRateLimit(ip, 10, 60000)) {
+      return Response.json({ error: 'Too many requests, please slow down.' }, { status: 429 });
+    }
+
     const { imageBase64, mimeType, query, apiKey, modelName } = await req.json();
 
     const genAI = new GoogleGenerativeAI(apiKey || process.env.GEMINI_API_KEY || '');
@@ -44,8 +53,9 @@ export async function POST(req: Request) {
     }
 
     return Response.json({ text });
-  } catch (error) {
-    console.error('Gemini Vision API Error:', error);
+  } catch (error: any) {
+    console.error('Vision API Error:', error);
+    await logError({ route: '/api/vision', error });
     return Response.json({ error: 'Failed to process image' }, { status: 500 });
   }
 }

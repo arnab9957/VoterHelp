@@ -1,77 +1,72 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { insforge } from '@/lib/insforge';
+import { checkRateLimit } from '@/lib/rateLimit';
+import { logError } from '@/lib/logError';
+
+export const runtime = 'edge';
 
 export async function POST(req: Request) {
   try {
-    const { messages, userState, userRole, language, apiKey, modelName } = await req.json();
-
-    const genAI = new GoogleGenerativeAI(apiKey || process.env.GEMINI_API_KEY || '');
-
-    const systemInstruction = `You are Ballot Buddy, a non-partisan, highly accurate election expert assistant.
-    Your primary goal is to guide users through the election process, focusing on the National Voter Registration Act (NVRA), UOCAVA, and related state-specific guidelines.
-    Never show partisan bias or endorse any candidate or party. Provide helpful, structured answers.
-    The user is currently voting from: ${userState || 'Unknown Location'}
-    The user's role is: ${userRole || 'Civilian'}
-    The user requested a voting plan. Create a customized, step-by-step checklist based on their state and role. Include specific dates or deadlines if possible, or advise them where to find them. Format as a markdown list.`;
-
-    const model = genAI.getGenerativeModel({ 
-      model: modelName || 'gemini-2.5-flash',
-      systemInstruction: systemInstruction,
-    });
-
-    // Map frontend messages to Gemini format and ensure alternating roles
-    const history: any[] = [];
-    let lastRole = '';
-
-    messages.forEach((msg: any) => {
-      if (msg.type !== 'text') return;
-      
-      const role = msg.isUser ? 'user' : 'model';
-      
-      // Gemini history MUST start with 'user'
-      if (history.length === 0 && role === 'model') return;
-
-      if (role !== lastRole) {
-        history.push({
-          role: role,
-          parts: [{ text: msg.text || '' }]
-        });
-        lastRole = role;
-      } else if (history.length > 0) {
-        history[history.length - 1].parts[0].text += '\n' + (msg.text || '');
-      }
-    });
-
-    // Ensure it ends with 'model' before we add the final 'user' prompt
-    if (history.length > 0 && history[history.length - 1].role === 'user') {
-      history.push({
-        role: 'model',
-        parts: [{ text: 'I have analyzed your situation.' }]
-      });
+    const ip = req.headers.get('x-forwarded-for') || 'anonymous';
+    if (!checkRateLimit(ip, 5, 60000)) {
+      return Response.json({ error: 'Too many requests, please slow down.' }, { status: 429 });
     }
 
-    const result = await model.generateContent({
-      contents: [...history, { role: 'user', parts: [{ text: 'Generate my voting plan.' }] }],
-    });
-    const response = await result.response;
-    const text = response.text();
+    const { messages, userState, userRole, language, apiKey, modelName } = await req.json();
 
-    // Log to InsForge
+    const google = createGoogleGenerativeAI({
+      apiKey: apiKey || process.env.GEMINI_API_KEY || '',
+    });
+
+    const systemInstruction = `You are Ballot Buddy, a non-partisan, highly accurate election expert assistant.
+    The user is currently voting from: ${userState || 'Unknown Location'}
+    The user's role is: ${userRole || 'Civilian'}
+    ${language ? `Translate the output to this language: ${language}` : ''}
+    Generate a comprehensive, customized voting plan containing exactly two sections:
+    1. A summary of their plan (Markdown text).
+    2. An array of specific timeline events/deadlines based on their state and role. Include specific dates in 'YYYY-MM-DD' format if known, or descriptive text like 'Early October'.`;
+
+    // Map messages
+    const coreMessages = messages.filter((m: any) => m.type === 'text').map((msg: any) => ({
+      role: msg.isUser ? 'user' : 'assistant',
+      content: msg.text || '',
+    }));
+
+    coreMessages.push({ role: 'user', content: 'Generate my voting plan.' });
+
+    const result = await generateObject({
+      model: google(modelName || 'gemini-2.5-flash'),
+      schema: z.object({
+        summary: z.string().describe('A detailed summary text of the voting plan in Markdown format.'),
+        events: z.array(z.object({
+          date: z.string().describe('Date of the event (e.g. 2024-11-05 or October 15)'),
+          title: z.string().describe('Short title of the milestone'),
+          description: z.string().describe('Detailed description of what to do by this date')
+        })).describe('A chronological list of deadlines and action items.')
+      }),
+      system: systemInstruction,
+      messages: coreMessages,
+    });
+
     try {
       await insforge.database.from('user_interactions').insert([{
         location: userState || 'Unknown',
         role: userRole || 'Civilian',
         query: 'Generate voting plan',
-        response: text,
+        response: result.object.summary,
         language: language || 'English'
       }]);
     } catch (dbError) {
       console.error('Failed to log to InsForge:', dbError);
     }
 
-    return Response.json({ text });
-  } catch (error) {
-    console.error('Gemini Plan API Error:', error);
-    return Response.json({ error: 'Failed to generate plan' }, { status: 500 });
+    return Response.json(result.object);
+  } catch (error: any) {
+    console.error('Plan API Error:', error);
+    await logError({ route: '/api/plan', error });
+    return Response.json({ error: 'Failed to generate plan', details: error.message }, { status: 500 });
   }
 }
+

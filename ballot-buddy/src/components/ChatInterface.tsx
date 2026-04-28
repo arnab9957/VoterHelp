@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import MessageBubble from './MessageBubble';
 import OptionsSelector from './OptionsSelector';
-import InteractiveTimeline from './InteractiveTimeline';
-import { getStateByName, getStateByAbbrev, getAllStates } from '@/data/stateData';
+const InteractiveTimeline = lazy(() => import('./InteractiveTimeline'));
+import { getStateByName, getStateByAbbrev } from '@/data/stateData';
 import ReactMarkdown from 'react-markdown';
+import { insforge } from '@/lib/insforge';
 
 type Message = {
   id: string;
@@ -34,6 +35,20 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const latestOptionRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Focus trap for settings panel
+  useEffect(() => {
+    if (showSettings && settingsPanelRef.current) {
+      const focusable = settingsPanelRef.current.querySelectorAll<HTMLElement>(
+        'input, select, button, [tabindex]:not([tabindex="-1"])'
+      );
+      focusable[0]?.focus();
+    } else if (!showSettings && settingsButtonRef.current) {
+      settingsButtonRef.current.focus();
+    }
+  }, [showSettings]);
 
   useEffect(() => {
     if (initialAnswer) {
@@ -53,29 +68,86 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
   };
 
   useEffect(() => {
-    const savedData = localStorage.getItem('ballotBuddyUserData');
-    if (savedData) {
+    let sid = localStorage.getItem('ballotBuddySessionId');
+    if (!sid) {
+      sid = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
+      localStorage.setItem('ballotBuddySessionId', sid);
+    }
+
+    const loadSession = async () => {
       try {
-        const parsed = JSON.parse(savedData);
-        if (parsed.location && parsed.role) {
-          setUserData(parsed);
-          setStep('mainMenu');
-          setTimeout(() => {
-            setMessages([{
-              id: 'welcome-back',
-              isUser: false,
-              type: 'text',
-              text: `Welcome back! I see your location is ${parsed.location}. What would you like to explore?`
-            }]);
-            setIsLoading(false);
-            showMainMenu(600);
-          }, 500);
+        const { data, error } = await insforge.database
+          .from('chat_sessions')
+          .select('*')
+          .eq('session_id', sid)
+          .single();
+          
+        if (data && data.messages && data.messages.length > 0) {
+          setMessages(data.messages);
+          if (data.user_data && data.user_data.location) {
+            setUserData(data.user_data);
+            setStep('mainMenu');
+          } else {
+            setStep('askRole');
+          }
+          setIsLoading(false);
+          scrollToBottom();
           return;
         }
-      } catch (e) {
-        localStorage.removeItem('ballotBuddyUserData');
+      } catch (err) {
+        console.error("Failed to load session", err);
       }
+      
+      setTimeout(() => {
+        setMessages([
+          {
+            id: '1',
+            isUser: false,
+            type: 'text',
+            text: "Hello! I am Ballot Buddy, your non-partisan guide to the election process. To provide the most accurate information based on the National Voter Registration Act (NVRA), what state or ZIP code are you voting in?"
+          }
+        ]);
+        setIsLoading(false);
+      }, 500);
+    };
+    
+    loadSession();
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+    
+    const syncSession = async () => {
+      const sid = localStorage.getItem('ballotBuddySessionId');
+      if (!sid || messages.length === 0) return;
+      
+      try {
+        await insforge.database
+          .from('chat_sessions')
+          .upsert({
+            session_id: sid,
+            messages,
+            user_data: userData,
+            updated_at: new Date().toISOString()
+          });
+      } catch (e) {
+        console.error("Failed to sync session", e);
+      }
+    };
+    
+    const timer = setTimeout(syncSession, 1000);
+    return () => clearTimeout(timer);
+  }, [messages, userData]);
+
+  const clearChat = async () => {
+    const sid = localStorage.getItem('ballotBuddySessionId');
+    if (sid) {
+      await insforge.database.from('chat_sessions').delete().eq('session_id', sid);
     }
+    setMessages([]);
+    setStep('greeting');
+    setUserData({ location: '', role: '' });
+    localStorage.removeItem('ballotBuddyUserData');
     setTimeout(() => {
       setMessages([
         {
@@ -85,13 +157,8 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
           text: "Hello! I am Ballot Buddy, your non-partisan guide to the election process. To provide the most accurate information based on the National Voter Registration Act (NVRA), what state or ZIP code are you voting in?"
         }
       ]);
-      setIsLoading(false);
-    }, 500);
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    }, 100);
+  };
 
   const addBotMessage = (text: string, delay: number = 600) => {
     setTimeout(() => {
@@ -117,35 +184,51 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
   };
 
   const fetchGeminiFallback = (query: string) => {
+    streamChatResponse({
+      messages: [...messages, { id: 'temp-query', isUser: true, text: query, type: 'text' } as Message].filter(m => m.type === 'text'),
+      userState: userData.location,
+      userRole: userData.role,
+      language,
+      apiKey,
+      modelName
+    });
+  };
+
+  const streamChatResponse = async (apiBody: any) => {
     setIsGeneratingResponse(true);
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [...messages, { id: 'temp-query', isUser: true, text: query, type: 'text' } as Message].filter(m => m.type === 'text'),
-        userState: userData.location,
-        userRole: userData.role,
-        language,
-        apiKey,
-        modelName
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      setIsGeneratingResponse(false);
-      if (data.error) {
-        addBotMessage("I encountered an error connecting to my knowledge base. Please try again.");
-      } else {
-        addBotMessage(data.text);
+    const botMessageId = Date.now().toString() + Math.random();
+    setMessages(prev => [...prev, { id: botMessageId, isUser: false, type: 'text', text: '' }]);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiBody)
+      });
+
+      if (!res.ok) throw new Error('API error');
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let streamedText = '';
+
+      while (reader && !done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          streamedText += decoder.decode(value, { stream: true });
+          setMessages(prev => prev.map(m => m.id === botMessageId ? { ...m, text: streamedText } : m));
+        }
       }
+      setIsGeneratingResponse(false);
       showMainMenu(1200);
-    })
-    .catch(err => {
+    } catch (err) {
       setIsGeneratingResponse(false);
       console.error("Chat error:", err);
-      addBotMessage("Sorry, I had trouble processing that request.");
+      setMessages(prev => prev.map(m => m.id === botMessageId ? { ...m, text: "I encountered an error connecting to my knowledge base. Please try again." } : m));
       showMainMenu(1200);
-    });
+    }
   };
 
   const showMainMenu = (delay: number = 600) => {
@@ -444,34 +527,14 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
           addBotMessage("Could not read the uploaded file.");
         }
       } else {
-        // Call normal Chat API
-        fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [...messages, { id: Date.now().toString(), isUser: true, text: input, type: 'text' }].filter(m => m.type === 'text'),
-            userState: userData.location,
-            userRole: userData.role,
-            language,
-            apiKey,
-            modelName
-          })
-        })
-        .then(res => res.json())
-        .then(data => {
-          setIsGeneratingResponse(false);
-          if (data.error) {
-            addBotMessage("I encountered an error connecting to my knowledge base. Please try again.");
-          } else {
-            addBotMessage(data.text);
-            showMainMenu(1200);
-          }
-        })
-        .catch(err => {
-          setIsGeneratingResponse(false);
-          console.error("Chat error:", err);
-          addBotMessage("Sorry, I had trouble processing that request. Please try selecting an option from the menu.");
-          showMainMenu(1200);
+        // Call normal Chat API with streaming
+        streamChatResponse({
+          messages: [...messages, { id: Date.now().toString(), isUser: true, text: input, type: 'text' }].filter(m => m.type === 'text'),
+          userState: userData.location,
+          userRole: userData.role,
+          language,
+          apiKey,
+          modelName
         });
       }
     }
@@ -481,20 +544,31 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
     <div className="flex flex-col h-full w-full glass-panel rounded-3xl overflow-hidden shadow-2xl relative border border-indigo-500/20">
       {/* Header & Settings */}
       <div className="px-6 py-3 border-b border-[var(--glass-border)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
-        <div className="font-semibold text-indigo-400 flex items-center gap-2">
-          <span className="text-xl">🗳️</span> Ballot Buddy
+        <div className="font-semibold text-indigo-400 flex items-center gap-2" role="heading" aria-level={2}>
+          <span className="text-xl" aria-hidden="true">🗳️</span> Ballot Buddy
         </div>
         <button 
+          ref={settingsButtonRef}
           onClick={() => setShowSettings(!showSettings)}
+          aria-expanded={showSettings}
+          aria-controls="settings-panel"
+          aria-label={showSettings ? 'Close settings' : 'Open settings'}
           className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           Settings
         </button>
       </div>
 
       {showSettings && (
-        <div className="px-6 py-4 bg-[var(--bg-accent)] border-b border-[var(--glass-border)] flex flex-col gap-3 shrink-0">
+        <div
+          id="settings-panel"
+          ref={settingsPanelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ballot Buddy settings"
+          className="px-6 py-4 bg-[var(--bg-accent)] border-b border-[var(--glass-border)] flex flex-col gap-3 shrink-0"
+        >
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="flex-1 w-full">
               <label className="block text-xs text-[var(--text-secondary)] uppercase tracking-wider font-semibold mb-1">API Key</label>
@@ -518,10 +592,25 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
               </select>
             </div>
           </div>
+          <div className="flex justify-end pt-2 border-t border-[var(--glass-border)] mt-2">
+            <button 
+              onClick={clearChat}
+              className="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              Clear Chat History
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-6 scroll-smooth" role="log" aria-label="Chat messages" aria-live="polite">
+      <div
+        className="flex-1 overflow-y-auto p-6 scroll-smooth"
+        role="log"
+        aria-label="Chat messages"
+        aria-live="polite"
+        aria-busy={isGeneratingResponse}
+      >
         {isLoading && (
           <div className="flex flex-col gap-3 my-4">
             <div className="bg-[var(--bg-accent)] p-4 rounded-2xl rounded-tl-sm w-4/5 animate-pulse">
@@ -547,7 +636,9 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
               <OptionsSelector options={msg.options} onSelect={(id) => handleOptionSelect(id, msg.options!.find(o => o.id === id)?.label || id)} />
             )}
             {msg.type === 'timeline' && msg.events && (
-              <InteractiveTimeline events={msg.events} />
+              <Suspense fallback={<div className="h-24 animate-pulse bg-white/5 rounded-xl" />}>
+                <InteractiveTimeline events={msg.events} />
+              </Suspense>
             )}
           </div>
         ))}
@@ -624,6 +715,7 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
             onClick={() => fileInputRef.current?.click()}
             className="p-3 sm:p-4 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-xl transition-all"
             title="Upload Document"
+            aria-label="Upload a document or image for analysis"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.2 15c.7-1.2 1-2.5.7-3.9-.6-2-2.4-3.5-4.4-3.5h-1.2c-.7-3-3.2-5.2-6.2-5.6-3-.3-5.9 1.3-7.3 4-1.2 2.5-1 6.5.5 8.8m8.7-1.6V21"/><path d="M16 16l-4-4-4 4"/></svg>
           </button>

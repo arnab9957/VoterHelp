@@ -38,7 +38,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-transparent p-4 md:p-8 flex flex-col items-center">
+    <main id="main-content" className="min-h-screen bg-transparent p-4 md:p-8 flex flex-col items-center">
       <SearchButton onClick={openSearch} />
       <ThemeToggle />
       
@@ -81,6 +81,17 @@ export default function Home() {
         <div className="lg:col-span-5 w-full">
           <EssentialInfo />
         </div>
+      </div>
+
+      {/* Footer admin link */}
+      <div className="w-full max-w-7xl mx-auto mt-6 flex justify-end relative z-10">
+        <a
+          href="/admin"
+          className="text-xs text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1"
+          aria-label="Open analytics dashboard"
+        >
+          📊 Analytics
+        </a>
       </div>
     </main>
   );

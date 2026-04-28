@@ -108,3 +108,39 @@
     box-shadow: 0 0 35px var(--accent-glow);
   }
 }
+
+/* ── Typography ─────────────────────────────────── */
+.font-inter {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Accessibility: enhanced focus ring ─────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Skip-to-main-content link (screen readers) */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--accent-color);
+  color: #fff;
+  border-radius: 0 0 8px 8px;
+  font-weight: 600;
+  z-index: 9999;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
