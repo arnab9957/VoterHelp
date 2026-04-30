@@ -244,6 +244,20 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
   const handleOptionSelect = (id: string, label: string) => {
     setMessages(prev => [...prev, { id: Date.now().toString(), isUser: true, text: label, type: 'text' }]);
 
+    const isIndia = userData.location?.toLowerCase().includes('india');
+    // Bypass hardcoded US responses if a different language is selected or if location is India
+    if ((language !== 'English' || isIndia) && id !== 'main_menu') {
+      streamChatResponse({
+        messages: [...messages, { id: Date.now().toString(), isUser: true, text: `Please explain: ${label} in the context of my location`, type: 'text' }].filter(m => m.type === 'text'),
+        userState: userData.location,
+        userRole: userData.role,
+        language,
+        apiKey,
+        modelName
+      });
+      return;
+    }
+
     // Eligibility Menu
     if (id === 'eligibility') {
       addBotMessage("Under the NVRA and VRA, we have specific frameworks. What would you like to know?");
@@ -456,7 +470,7 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
         addBotMessage(`📅 Registration Deadline: ${stateInfo.registrationDeadline}`);
         addBotMessage(`📅 Early Voting: ${stateInfo.earlyVotingStart} to ${stateInfo.earlyVotingEnd}`);
       } else {
-        addBotMessage(`Got it, your location is ${input}. I couldn't find exact state data for "${input}", but I'll provide general federal guidelines.`);
+        addBotMessage(`Got it, your location is ${input}. I couldn't find exact state data for "${input}", but I'll provide general guidelines tailored to your region.`);
       }
       
       const newData = { ...userData, location: inputClean };
@@ -464,7 +478,7 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
       localStorage.setItem('ballotBuddyUserData', JSON.stringify(newData));
       setStep('askRole');
       setTimeout(() => {
-        addBotMessage(`To help me provide UOCAVA guidance if needed, are you a standard civilian voter, military, or living overseas?`);
+        addBotMessage(`To help me provide the best guidance, are you a standard civilian voter, military, or living overseas?`);
       }, 800);
     } else if (step === 'askRole') {
       const newData = { ...userData, role: input };
@@ -670,6 +684,8 @@ export default function ChatInterface({ initialAnswer }: ChatInterfaceProps) {
               <option value="Spanish">🇪🇸 Spanish</option>
               <option value="Mandarin">🇨🇳 Mandarin</option>
               <option value="Tagalog">🇵🇭 Tagalog</option>
+              <option value="Hindi">🇮🇳 Hindi</option>
+              <option value="Bengali">🇮🇳 Bengali</option>
             </select>
           </div>
           <button 

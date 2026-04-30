@@ -1,7 +1,68 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function EssentialInfo() {
-  const essentials = [
+  const [location, setLocation] = useState('');
+
+  useEffect(() => {
+    const checkLoc = () => {
+      const data = localStorage.getItem('ballotBuddyUserData');
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.location !== location) {
+            setLocation(parsed.location || '');
+          }
+        } catch(e){}
+      } else {
+        if (location !== '') setLocation('');
+      }
+    };
+    checkLoc();
+    window.addEventListener('storage', checkLoc);
+    const interval = setInterval(checkLoc, 1000);
+    return () => { window.removeEventListener('storage', checkLoc); clearInterval(interval); };
+  }, [location]);
+
+  const isIndia = location.toLowerCase().includes('india');
+
+  const essentials = isIndia ? [
+    {
+      title: "Voter Eligibility",
+      icon: "👤",
+      details: [
+        "Indian Citizen",
+        "At least 18 years old",
+        "Registered in electoral roll"
+      ]
+    },
+    {
+      title: "Ways to Vote",
+      icon: "🗳️",
+      details: [
+        "Electronic Voting Machines (EVMs)",
+        "Postal Ballot (if eligible)",
+        "Service Voters"
+      ]
+    },
+    {
+      title: "What to Bring",
+      icon: "🪪",
+      details: [
+        "Voter ID Card (EPIC)",
+        "Alternative authorized photo ID",
+        "Voter Slip"
+      ]
+    },
+    {
+      title: "Key Deadlines",
+      icon: "⏰",
+      details: [
+        "Registration: Closes before elections",
+        "Check name in electoral roll early",
+        "Election dates announced by ECI"
+      ]
+    }
+  ] : [
     {
       title: "Voter Eligibility",
       icon: "👤",
@@ -75,17 +136,28 @@ export default function EssentialInfo() {
         <h3 className="font-semibold text-lg text-[var(--text-primary)] mb-4 text-indigo-300 flex items-center gap-2">
           <span>🔗</span> Essential Resources
         </h3>
-        <div className="flex flex-wrap gap-3">
-          <a href="https://vote.gov" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
-            Vote.gov
-          </a>
-          <a href="https://www.fec.gov" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
-            FEC Database
-          </a>
-          <a href="https://www.eac.gov" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
-            EAC.gov
-          </a>
-        </div>
+        {isIndia ? (
+          <div className="flex flex-wrap gap-3">
+            <a href="https://eci.gov.in" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+              Election Commission
+            </a>
+            <a href="https://voters.eci.gov.in" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+              Voter Portal
+            </a>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <a href="https://vote.gov" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+              Vote.gov
+            </a>
+            <a href="https://www.fec.gov" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+              FEC Database
+            </a>
+            <a href="https://www.eac.gov" target="_blank" rel="noreferrer" className="flex-1 min-w-[120px] text-center px-4 py-3 bg-[var(--bg-accent)] rounded-xl text-sm font-medium hover:bg-indigo-600 hover:text-white transition-all border border-[var(--glass-border)] shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.4)]">
+              EAC.gov
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
