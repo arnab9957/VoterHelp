@@ -3,6 +3,8 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { insforge } from '@/lib/insforge';
 import { checkRateLimit } from '@/lib/rateLimit';
 
+import { z } from 'zod';
+
 export const runtime = 'edge';
 
 // Phrases that signal the model is uncertain
@@ -42,6 +44,15 @@ async function summarizeHistory(
   return text;
 }
 
+const ChatRequestSchema = z.object({
+  messages: z.array(z.any()).default([]),
+  userState: z.string().optional(),
+  userRole: z.string().optional(),
+  language: z.string().optional(),
+  apiKey: z.string().optional(),
+  modelName: z.string().default('gemini-2.5-flash'),
+});
+
 export async function POST(req: Request) {
   let resolvedModel = 'gemini-2.5-flash';
 
@@ -55,8 +66,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { messages, userState, userRole, language, apiKey, modelName } = body;
-    resolvedModel = modelName || 'gemini-2.5-flash';
+    const parsedBody = ChatRequestSchema.safeParse(body);
+
+    if (!parsedBody.success) {
+      return Response.json(
+        { error: 'Invalid request payload', details: parsedBody.error },
+        { status: 400 }
+      );
+    }
+
+    const { messages, userState, userRole, language, apiKey, modelName } = parsedBody.data;
+    resolvedModel = modelName;
 
     const resolvedApiKey = apiKey || process.env.GEMINI_API_KEY || '';
 
